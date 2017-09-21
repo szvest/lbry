@@ -9,6 +9,7 @@ import json
 import textwrap
 import random
 import signal
+from copy import deepcopy
 
 from twisted.web import server
 from twisted.internet import defer, threads, error, reactor
@@ -17,7 +18,7 @@ from twisted.python.failure import Failure
 
 from lbryschema.claim import ClaimDict
 from lbryschema.uri import parse_lbry_uri
-from lbryschema.error import URIParseError
+from lbryschema.error import URIParseError, DecodeError
 from lbryschema.validator import validate_claim_id
 from lbryschema.address import decode_address
 
@@ -1841,8 +1842,25 @@ class Daemon(AuthJSONRPCServer):
             }
         }
 
+        claim_copy = deepcopy(claim_dict)
         if sources is not None:
             claim_dict['stream']['source'] = sources
+            claim_copy['stream']['source'] = sources
+        elif file_path is not None:
+            if not os.path.isfile(file_path):
+                raise Exception("invalid file path to publish")
+            claim_copy['stream']['source'] = {
+                'version': '_0_0_1',
+                'sourceType': 'lbry_sd_hash',
+                'source': '0' * 96,
+                'contentType': ''
+            }
+        else:
+            raise Exception("no source provided to publish")
+        try:
+            ClaimDict.load_dict(claim_copy)
+        except DecodeError as err:
+            raise Exception("invalid publish metadata: %s" % err.message)
 
         log.info("Publish: %s", {
             'name': name,
