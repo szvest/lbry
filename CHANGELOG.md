@@ -29,6 +29,7 @@ at anytime.
   * Announcing by head blob is turned on by default
   * Updated reflector server dns
   * Moved tests into the lbrynet package.
+  * Moved BLOB_SIZE from conf.py to MAX_BLOB_SIZE in blob/blob_file.py
 
 ### Added
   * Added WAL pragma to sqlite3
@@ -44,7 +45,7 @@ at anytime.
 ### Removed
   * Removed `TempBlobFile`
   * Removed unused `EncryptedFileOpener`
-
+  * Removed some alternate methods of reading from blob files
 
 ## [0.16.3] - 2017-09-28
 ### Fixed
