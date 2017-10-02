@@ -2,7 +2,6 @@ from twisted.trial import unittest
 from twisted.internet import defer
 from lbrynet.cryptstream import CryptBlob
 from lbrynet.blob.blob_file import MAX_BLOB_SIZE
-from lbrynet import conf
 
 from lbrynet.tests.mocks import mock_conf_settings
 
