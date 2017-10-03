@@ -8,9 +8,12 @@ import hashlib
 import unittest
 import struct
 
+from twisted.internet import protocol, defer, selectreactor
+from lbrynet.dht.msgtypes import ResponseMessage
 import lbrynet.dht.node
 import lbrynet.dht.constants
 import lbrynet.dht.datastore
+
 
 class NodeIDTest(unittest.TestCase):
     """ Test case for the Node class's ID """
@@ -20,7 +23,7 @@ class NodeIDTest(unittest.TestCase):
     def testAutoCreatedID(self):
         """ Tests if a new node has a valid node ID """
         self.failUnlessEqual(type(self.node.id), str, 'Node does not have a valid ID')
-        self.failUnlessEqual(len(self.node.id), 20, 'Node ID length is incorrect! Expected 160 bits, got %d bits.' % (len(self.node.id)*8))
+        self.failUnlessEqual(len(self.node.id), 48, 'Node ID length is incorrect! Expected 384 bits, got %d bits.' % (len(self.node.id)*8))
 
     def testUniqueness(self):
         """ Tests the uniqueness of the values created by the NodeID generator 
@@ -37,14 +40,14 @@ class NodeIDTest(unittest.TestCase):
         for i in range(20):
             id = self.node._generateID()
             # Key length: 20 bytes == 160 bits
-            self.failUnlessEqual(len(id), 20, 'Length of generated ID is incorrect! Expected 160 bits, got %d bits.' % (len(id)*8))
+            self.failUnlessEqual(len(id), 48, 'Length of generated ID is incorrect! Expected 384 bits, got %d bits.' % (len(id)*8))
 
 
 class NodeDataTest(unittest.TestCase):
     """ Test case for the Node class's data-related functions """
     def setUp(self):
         import lbrynet.dht.contact
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('test')
         self.node = lbrynet.dht.node.Node()
         self.contact = lbrynet.dht.contact.Contact(h.digest(), '127.0.0.1', 12345, self.node._protocol)
@@ -54,25 +57,21 @@ class NodeDataTest(unittest.TestCase):
             h.update(str(i))
             self.cases.append((h.digest(), 5000+2*i))
             self.cases.append((h.digest(), 5001+2*i))
-<<<<<<< Updated upstream
-            #(('a', 'hello there\nthis is a test'),
-            #         ('aMuchLongerKeyThanAnyOfThePreviousOnes', 'some data'))
-        
-=======
 
->>>>>>> Stashed changes
     def testStore(self):
-
-        def check_val_in_result(r, peer_info):
-            self.failUnless
-
         """ Tests if the node can store (and privately retrieve) some data """
         for key, value in self.cases:
-            self.node.store(key, {'port': value, 'bbid': self.contact.id, 'token': self.token}, self.contact.id, _rpcNodeContact=self.contact)
+            request = {
+                'port': value,
+                'lbryid': self.contact.id,
+                'token': self.token
+            }
+            self.node.store(key, request, self.contact.id, _rpcNodeContact=self.contact)
         for key, value in self.cases:
             expected_result = self.contact.compact_ip() + str(struct.pack('>H', value))  + self.contact.id
             self.failUnless(self.node._dataStore.hasPeersForBlob(key), 'Stored key not found in node\'s DataStore: "%s"' % key)
             self.failUnless(expected_result in self.node._dataStore.getPeersForBlob(key), 'Stored val not found in node\'s DataStore: key:"%s" port:"%s" %s' % (key, value, self.node._dataStore.getPeersForBlob(key)))
+
 
 class NodeContactTest(unittest.TestCase):
     """ Test case for the Node class's contact management-related functions """
@@ -106,21 +105,6 @@ class NodeContactTest(unittest.TestCase):
         self.failIf(contact in closestNodes, 'Node added itself as a contact')
 
 
-<<<<<<< Updated upstream
-#    """ Test case for the Node class's iterative node lookup algorithm """
-            
-            
-#        """ Ugly brute-force test to see if the iterative node lookup algorithm runs without failing """
-
-=======
->>>>>>> Stashed changes
-
-"""Some scaffolding for the NodeLookupTest class. Allows isolated
-node testing by simulating remote node responses"""
-from twisted.internet import protocol, defer, selectreactor
-from lbrynet.dht.msgtypes import ResponseMessage
-
-
 class FakeRPCProtocol(protocol.DatagramProtocol):
     def __init__(self):
         self.reactor = selectreactor.SelectReactor() 
@@ -134,9 +118,9 @@ class FakeRPCProtocol(protocol.DatagramProtocol):
          """
          self.network = contactNetwork
        
-    """ Fake RPC protocol; allows entangled.kademlia.contact.Contact objects to "send" RPCs """
     def sendRPC(self, contact, method, args, rawResponse=False):
-        
+        """ Fake RPC protocol; allows entangled.kademlia.contact.Contact objects to "send" RPCs """
+
         if method == "findNode":        
             # get the specific contacts closest contacts
             closestContacts = []
@@ -199,33 +183,28 @@ class NodeLookupTest(unittest.TestCase):
         # since there is no asynchronous network communication
         
         # create the node to be tested in isolation
-        self.node = lbrynet.dht.node.Node(None, 4000, None, None, self._protocol)
+        self.node = lbrynet.dht.node.Node('12345678901234567800', 4000, None, None, self._protocol)
         
         self.updPort = 81173
-        
-<<<<<<< Updated upstream
-        # create a dummy reactor 
-        
-=======
->>>>>>> Stashed changes
+
         self.contactsAmount = 80
-        # set the node ID manually for testing
-        self.node.id = '12345678901234567800'
         
         # Reinitialise the routing table
         self.node._routingTable = lbrynet.dht.routingtable.OptimizedTreeRoutingTable(self.node.id)
-       
+
         # create 160 bit node ID's for test purposes
         self.testNodeIDs = []
         idNum = int(self.node.id)
         for i in range(self.contactsAmount):
-            # create the testNodeIDs in ascending order, away from the actual node ID, with regards to the distance metric 
+            # create the testNodeIDs in ascending order, away from the actual node ID,
+            # with regards to the distance metric
             self.testNodeIDs.append(idNum + i + 1)
 
         # generate contacts
         self.contacts = []
         for i in range(self.contactsAmount):
-            contact = lbrynet.dht.contact.Contact(str(self.testNodeIDs[i]), "127.0.0.1", self.updPort + i + 1, self._protocol)
+            contact = lbrynet.dht.contact.Contact(str(self.testNodeIDs[i]), "127.0.0.1",
+                                                  self.updPort + i + 1, self._protocol)
             self.contacts.append(contact)
             
         # create the network of contacts in format: (contact, closest contacts)        
@@ -254,7 +233,8 @@ class NodeLookupTest(unittest.TestCase):
         contacts_with_datastores = []
 
         for contact_tuple in contactNetwork:
-            contacts_with_datastores.append((contact_tuple[0], contact_tuple[1], lbrynet.dht.datastore.DictDataStore()))
+            contacts_with_datastores.append((contact_tuple[0], contact_tuple[1],
+                                             lbrynet.dht.datastore.DictDataStore()))
         
         self._protocol.createNetwork(contacts_with_datastores)
         
@@ -270,27 +250,13 @@ class NodeLookupTest(unittest.TestCase):
         
         # Get the result from the deferred
         activeContacts = df.result
-              
-        
+
         # Check the length of the active contacts
-        self.failUnlessEqual(activeContacts.__len__(), expectedResult.__len__(), \
-                                 "More active contacts should exist, there should be %d contacts" %expectedResult.__len__())
-            
-        
+        self.failUnlessEqual(activeContacts.__len__(), expectedResult.__len__(),
+                             "More active contacts should exist, there should be %d "
+                             "contacts" % expectedResult.__len__())
+
         # Check that the received active contacts are the same as the input contacts
-        self.failUnlessEqual(activeContacts, expectedResult, \
-                                 "Active should only contain the closest possible contacts which were used as input for the boostrap")
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(NodeIDTest))
-    suite.addTest(unittest.makeSuite(NodeDataTest))
-    suite.addTest(unittest.makeSuite(NodeContactTest))
-    suite.addTest(unittest.makeSuite(NodeLookupTest))
-    return suite
-
-
-if __name__ == '__main__':
-    # If this module is executed from the commandline, run all its tests
-    unittest.TextTestRunner().run(suite())
+        self.failUnlessEqual(activeContacts, expectedResult,
+                             "Active should only contain the closest possible contacts"
+                             " which were used as input for the boostrap")
