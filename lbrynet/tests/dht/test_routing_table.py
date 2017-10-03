@@ -10,6 +10,8 @@ import unittest
 import lbrynet.dht.constants
 import lbrynet.dht.routingtable
 import lbrynet.dht.contact
+import lbrynet.dht.node
+
 
 class FakeRPCProtocol(object):
     """ Fake RPC protocol; allows lbrynet.dht.contact.Contact objects to "send" RPCs """
@@ -21,6 +23,7 @@ class FakeDeferred(object):
     """ Fake Twisted Deferred object; allows the routing table to add callbacks that do nothing """
     def addCallback(self, *args, **kwargs):
         return
+
     def addErrback(self, *args, **kwargs):
         return
 
@@ -28,7 +31,7 @@ class FakeDeferred(object):
 class TreeRoutingTableTest(unittest.TestCase):
     """ Test case for the RoutingTable class """
     def setUp(self):
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('node1')
         self.nodeID = h.digest()
         self.protocol = FakeRPCProtocol()
@@ -41,21 +44,21 @@ class TreeRoutingTableTest(unittest.TestCase):
         basicTestList = [('123456789','123456789', 0L), ('12345', '98765', 34527773184L)]
 
         for test in basicTestList:
-            result = self.routingTable.distance(test[0], test[1])
+            result = lbrynet.dht.node.Distance(test[0])(test[1])
             self.failIf(result != test[2], 'Result of _distance() should be %s but %s returned' % (test[2], result))
 
         baseIp = '146.64.19.111'
         ipTestList = ['146.64.29.222', '192.68.19.333']
 
-        distanceOne = self.routingTable.distance(baseIp, ipTestList[0])
-        distanceTwo = self.routingTable.distance(baseIp, ipTestList[1])
+        distanceOne = lbrynet.dht.node.Distance(baseIp)(ipTestList[0])
+        distanceTwo = lbrynet.dht.node.Distance(baseIp)(ipTestList[1])
 
         self.failIf(distanceOne > distanceTwo, '%s should be closer to the base ip %s than %s' % (ipTestList[0], baseIp, ipTestList[1]))
     
     def testAddContact(self):
         """ Tests if a contact can be added and retrieved correctly """
         # Create the contact
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('node2')
         contactID = h.digest()
         contact = lbrynet.dht.contact.Contact(contactID, '127.0.0.1', 91824, self.protocol)
@@ -68,7 +71,7 @@ class TreeRoutingTableTest(unittest.TestCase):
     
     def testGetContact(self):
         """ Tests if a specific existing contact can be retrieved correctly """
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('node2')
         contactID = h.digest()
         contact = lbrynet.dht.contact.Contact(contactID, '127.0.0.1', 91824, self.protocol)
@@ -91,7 +94,7 @@ class TreeRoutingTableTest(unittest.TestCase):
     def testRemoveContact(self):
         """ Tests contact removal """
         # Create the contact
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('node2')
         contactID = h.digest()
         contact = lbrynet.dht.contact.Contact(contactID, '127.0.0.1', 91824, self.protocol)
@@ -105,33 +108,32 @@ class TreeRoutingTableTest(unittest.TestCase):
 
     def testSplitBucket(self):
         """ Tests if the the routing table correctly dynamically splits k-buckets """
-        self.failUnlessEqual(self.routingTable._buckets[0].rangeMax, 2**160, 'Initial k-bucket range should be 0 <= range < 2**160')
+        self.failUnlessEqual(self.routingTable._buckets[0].rangeMax, 2**384, 'Initial k-bucket range should be 0 <= range < 2**384')
         # Add k contacts
         for i in range(lbrynet.dht.constants.k):
-            h = hashlib.sha1()
+            h = hashlib.sha384()
             h.update('remote node %d' % i)
             nodeID = h.digest()
             contact = lbrynet.dht.contact.Contact(nodeID, '127.0.0.1', 91824, self.protocol)
             self.routingTable.addContact(contact)
         self.failUnlessEqual(len(self.routingTable._buckets), 1, 'Only k nodes have been added; the first k-bucket should now be full, but should not yet be split')
         # Now add 1 more contact
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('yet another remote node')
         nodeID = h.digest()
         contact = lbrynet.dht.contact.Contact(nodeID, '127.0.0.1', 91824, self.protocol)
         self.routingTable.addContact(contact)
         self.failUnlessEqual(len(self.routingTable._buckets), 2, 'k+1 nodes have been added; the first k-bucket should have been split into two new buckets')
-        self.failIfEqual(self.routingTable._buckets[0].rangeMax, 2**160, 'K-bucket was split, but its range was not properly adjusted')
-        self.failUnlessEqual(self.routingTable._buckets[1].rangeMax, 2**160, 'K-bucket was split, but the second (new) bucket\'s max range was not set properly')
+        self.failIfEqual(self.routingTable._buckets[0].rangeMax, 2**384, 'K-bucket was split, but its range was not properly adjusted')
+        self.failUnlessEqual(self.routingTable._buckets[1].rangeMax, 2**384, 'K-bucket was split, but the second (new) bucket\'s max range was not set properly')
         self.failUnlessEqual(self.routingTable._buckets[0].rangeMax, self.routingTable._buckets[1].rangeMin, 'K-bucket was split, but the min/max ranges were not divided properly')
-        
 
     def testFullBucketNoSplit(self):
         """ Test that a bucket is not split if it full, but does not cover the range containing the parent node's ID """
-        self.routingTable._parentNodeID = 21*'a' # more than 160 bits; this will not be in the range of _any_ k-bucket
+        self.routingTable._parentNodeID = 49 * 'a' # more than 384 bits; this will not be in the range of _any_ k-bucket
         # Add k contacts
         for i in range(lbrynet.dht.constants.k):
-            h = hashlib.sha1()
+            h = hashlib.sha384()
             h.update('remote node %d' % i)
             nodeID = h.digest()
             contact = lbrynet.dht.contact.Contact(nodeID, '127.0.0.1', 91824, self.protocol)
@@ -139,7 +141,7 @@ class TreeRoutingTableTest(unittest.TestCase):
         self.failUnlessEqual(len(self.routingTable._buckets), 1, 'Only k nodes have been added; the first k-bucket should now be full, and there should not be more than 1 bucket')
         self.failUnlessEqual(len(self.routingTable._buckets[0]._contacts), lbrynet.dht.constants.k, 'Bucket should have k contacts; expected %d got %d' % (lbrynet.dht.constants.k, len(self.routingTable._buckets[0]._contacts)))
         # Now add 1 more contact
-        h = hashlib.sha1()
+        h = hashlib.sha384()
         h.update('yet another remote node')
         nodeID = h.digest()
         contact = lbrynet.dht.contact.Contact(nodeID, '127.0.0.1', 91824, self.protocol)
@@ -156,3 +158,4 @@ def suite():
 if __name__ == '__main__':
     # If this module is executed from the commandline, run all its tests
     unittest.TextTestRunner().run(suite())
+
