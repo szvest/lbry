@@ -516,6 +516,7 @@ class Node(object):
                  node is returning all of the contacts that it knows of.
         @rtype: list
         """
+
         # Get the sender's ID (if any)
         if '_rpcNodeID' in kwargs:
             rpc_sender_id = kwargs['_rpcNodeID']
