@@ -12,9 +12,9 @@ import binascii
 import time
 import socket
 import errno
+import exceptions
 
 from twisted.internet import protocol, defer, error, reactor, task
-from twisted.python import failure
 
 import constants
 import encoding
@@ -23,6 +23,14 @@ import msgformat
 from contact import Contact
 
 log = logging.getLogger(__name__)
+
+REMOTE_EXCEPTIONS = {
+    "exceptions.%s" % e: getattr(exceptions, e) for e in dir(exceptions) if not e.startswith("_")
+}
+
+
+class UnknownRemoteException(Exception):
+    pass
 
 
 class TimeoutError(Exception):
@@ -289,7 +297,11 @@ class KademliaProtocol(protocol.DatagramProtocol):
                     df.callback((message, address))
                 elif isinstance(message, msgtypes.ErrorMessage):
                     # The RPC request raised a remote exception; raise it locally
-                    remoteException = Exception(message.response)
+                    if message.exceptionType in REMOTE_EXCEPTIONS:
+                        exception_type = REMOTE_EXCEPTIONS[message.exceptionType]
+                    else:
+                        exception_type = UnknownRemoteException
+                    remoteException = exception_type(message.response)
                     df.errback(remoteException)
                 else:
                     # We got a result from the RPC
@@ -421,12 +433,12 @@ class KademliaProtocol(protocol.DatagramProtocol):
                 kwargs = {'_rpcNodeID': senderContact.id, '_rpcNodeContact': senderContact}
                 result = func(*args, **kwargs)
             except Exception, e:
-                df.errback(failure.Failure(e))
+                df.errback(e)
             else:
                 df.callback(result)
         else:
             # No such exposed method
-            df.errback(failure.Failure(AttributeError('Invalid method: %s' % method)))
+            df.errback(AttributeError('Invalid method: %s' % method))
 
     def _msgTimeout(self, messageID):
         """ Called when an RPC request message times out """
@@ -444,7 +456,7 @@ class KademliaProtocol(protocol.DatagramProtocol):
         # The message's destination node is now considered to be dead;
         # raise an (asynchronous) TimeoutError exception and update the host node
         self._node.removeContact(remoteContactID)
-        df.errback(failure.Failure(TimeoutError(remoteContactID)))
+        df.errback(TimeoutError(remoteContactID))
 
     def _msgTimeoutInProgress(self, messageID, remoteContactID, df):
         # See if any progress has been made; if not, kill the message
@@ -456,7 +468,7 @@ class KademliaProtocol(protocol.DatagramProtocol):
             # No progress has been made
             del self._partialMessagesProgress[messageID]
             del self._partialMessages[messageID]
-            df.errback(failure.Failure(TimeoutError(remoteContactID)))
+            df.errback(TimeoutError(remoteContactID))
 
     def _hasProgressBeenMade(self, messageID):
         return (
