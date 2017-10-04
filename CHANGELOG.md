@@ -14,7 +14,7 @@ at anytime.
 
 ### Added
   * Added ability for reflector to store stream information for head blob announce
-  *
+  * Added missing `ping` and `echo` kademlia methods
 
 ### Fixed
   * Fixed handling cancelled blob and availability requests
@@ -22,6 +22,8 @@ at anytime.
   * Fixed https://github.com/lbryio/lbry/issues/923
   * Fixed concurrent reflects opening too many files
   * Fixed cases when reflecting would fail on error conditions
+  * Fixed and updated`lbrynet.tests.dht`
+  * Fixed redundant dht id
 
 ### Deprecated
   * Deprecated `blob_announce_all` JSONRPC command. Use `blob_announce` instead.
