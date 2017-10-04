@@ -4,13 +4,9 @@
 # the GNU Lesser General Public License Version 3, or any later version.
 # See the COPYING file included in this archive
 
-import time
 import unittest
 
-from twisted.internet import defer
-from twisted.python import failure
 import twisted.internet.selectreactor
-from twisted.internet.protocol import DatagramProtocol
 
 import lbrynet.dht.protocol
 import lbrynet.dht.contact
@@ -24,8 +20,9 @@ class FakeNode(object):
     test the Kademlia protocol's behaviour
     """
     def __init__(self, id):
-        self.id = id
+        self.lbryid = id
         self.contacts = []
+        self.port = 9182
         
     @rpcmethod
     def ping(self):
@@ -49,6 +46,7 @@ class FakeNode(object):
         object, not the direct Contact API), and removes the contact
         on a timeout """
         df = protocol.sendRPC(contact, 'ping', {})
+
         def handleError(f):
             if f.check(lbrynet.dht.protocol.TimeoutError):
                 self.removeContact(contact)
@@ -56,8 +54,10 @@ class FakeNode(object):
             else:
                 # This is some other error
                 return f
+
         df.addErrback(handleError)
         return df
+
 
 class ClientDatagramProtocol(lbrynet.dht.protocol.KademliaProtocol):
     data = ''
@@ -188,13 +188,3 @@ class KademliaProtocolTest(unittest.TestCase):
         self.failIf(self.error, self.error)
         # The list of sent RPC messages should be empty at this stage
         self.failUnlessEqual(len(self.protocol._sentMessages), 0, 'The protocol is still waiting for a RPC result, but the transaction is already done!')
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(KademliaProtocolTest))
-    return suite
-
-if __name__ == '__main__':
-    # If this module is executed from the commandline, run all its tests
-    unittest.TextTestRunner().run(suite())
