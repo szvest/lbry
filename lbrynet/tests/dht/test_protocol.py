@@ -25,14 +25,14 @@ class FakeNode(object):
         self.port = 9182
         
     @rpcmethod
-    def ping(self):
+    def ping(self, **kwargs):
         return 'pong'
     
     def pingNoRPC(self):
         return 'pong'
     
     @rpcmethod
-    def echo(self, value):
+    def echo(self, value, **kwargs):
         return value
     
     def addContact(self, contact):

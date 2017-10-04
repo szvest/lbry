@@ -421,12 +421,20 @@ class Node(object):
         return df
 
     @rpcmethod
-    def ping(self):
+    def ping(self, **kwargs):
         """ Used to verify contact between two Kademlia nodes
 
         @rtype: str
         """
         return 'pong'
+
+    @rpcmethod
+    def echo(self, value, **kwargs):
+        """ Used to verify contact between two Kademlia nodes
+
+        @rtype: str
+        """
+        return value
 
     @rpcmethod
     def store(self, key, value, originalPublisherID=None, self_store=False, **kwargs):
