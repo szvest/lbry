@@ -124,7 +124,7 @@ class Session(object):
 
         self.rate_limiter = rate_limiter
 
-        self.external_ip = '127.0.0.1'
+        self.external_ip = None
 
         self.upnp_redirects = []
 
