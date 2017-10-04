@@ -22,8 +22,8 @@ class NodeIDTest(unittest.TestCase):
 
     def testAutoCreatedID(self):
         """ Tests if a new node has a valid node ID """
-        self.failUnlessEqual(type(self.node.id), str, 'Node does not have a valid ID')
-        self.failUnlessEqual(len(self.node.id), 48, 'Node ID length is incorrect! Expected 384 bits, got %d bits.' % (len(self.node.id)*8))
+        self.failUnlessEqual(type(self.node.lbryid), str, 'Node does not have a valid ID')
+        self.failUnlessEqual(len(self.node.lbryid), 48, 'Node ID length is incorrect! Expected 384 bits, got %d bits.' % (len(self.node.lbryid) * 8))
 
     def testUniqueness(self):
         """ Tests the uniqueness of the values created by the NodeID generator 
@@ -97,11 +97,11 @@ class NodeContactTest(unittest.TestCase):
         """ Tests the node's behaviour when attempting to add itself as a contact """
         import lbrynet.dht.contact
         # Create a contact with the same ID as the local node's ID
-        contact = lbrynet.dht.contact.Contact(self.node.id, '127.0.0.1', 91824, None)
+        contact = lbrynet.dht.contact.Contact(self.node.lbryid, '127.0.0.1', 91824, None)
         # Now try to add it
         self.node.addContact(contact)
         # ...and request the closest nodes to it using FIND_NODE
-        closestNodes = self.node._routingTable.findCloseNodes(self.node.id, lbrynet.dht.constants.k)
+        closestNodes = self.node._routingTable.findCloseNodes(self.node.lbryid, lbrynet.dht.constants.k)
         self.failIf(contact in closestNodes, 'Node added itself as a contact')
 
 
@@ -190,11 +190,11 @@ class NodeLookupTest(unittest.TestCase):
         self.contactsAmount = 80
         
         # Reinitialise the routing table
-        self.node._routingTable = lbrynet.dht.routingtable.OptimizedTreeRoutingTable(self.node.id)
+        self.node._routingTable = lbrynet.dht.routingtable.OptimizedTreeRoutingTable(self.node.lbryid)
 
         # create 160 bit node ID's for test purposes
         self.testNodeIDs = []
-        idNum = int(self.node.id)
+        idNum = int(self.node.lbryid)
         for i in range(self.contactsAmount):
             # create the testNodeIDs in ascending order, away from the actual node ID,
             # with regards to the distance metric
@@ -241,7 +241,7 @@ class NodeLookupTest(unittest.TestCase):
     def testNodeBootStrap(self):
         """  Test bootstrap with the closest possible contacts """
                      
-        df = self.node._iterativeFind(self.node.id, self.contacts[0:8])
+        df = self.node._iterativeFind(self.node.lbryid, self.contacts[0:8])
         # Set the expected result
         expectedResult = []   
         
